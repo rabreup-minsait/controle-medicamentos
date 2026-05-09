@@ -43,6 +43,11 @@
       color: #664d03;
     }
 
+    .erro {
+      background: #ffebee;
+      color: #b71c1c;
+    }
+
     .card {
       margin-top: 16px;
       padding: 16px;
@@ -112,6 +117,7 @@
       display: block;
       margin-top: 14px;
       color: #666;
+      line-height: 1.4;
     }
   </style>
 </head>
@@ -143,17 +149,19 @@
 
     <small>
       Esta versão precisa estar aberta no celular para verificar os horários.
+      Para som/notificação, clique primeiro em <b>Ativar alertas</b>.
     </small>
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzk0z6sSJt4GEmR5p8kxYoECeTZWaUCxBZZmPr5AMMEYsQuk34z_chple5j8-t8b3oX/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwDGFzyJLLTH1LjgohqNmd-CN1LQFtOReyUeVGU4wHXposO65QkYfu2VUOwVRInAIR6/exec";
 
     let regras = [];
     let medicamentoAtual = null;
     let qtdAlertas = 0;
     let qtdAdiamentos = 0;
     let horarioAlertaAtual = null;
+    let alertasAtivados = false;
 
     const diasSemana = [
       "Domingo",
@@ -164,6 +172,22 @@
       "Sexta-Feira",
       "Sábado"
     ];
+
+    function hojeISO() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function chaveRegistro(idRegra) {
+      return hojeISO() + "_" + idRegra;
+    }
+
+    function jaRegistradoHoje(idRegra) {
+      return localStorage.getItem(chaveRegistro(idRegra)) === "registrado";
+    }
+
+    function marcarRegistradoHoje(idRegra) {
+      localStorage.setItem(chaveRegistro(idRegra), "registrado");
+    }
 
     function formatarHora(data) {
       return data.toTimeString().slice(0, 5);
@@ -186,7 +210,15 @@
       return texto;
     }
 
+    function mostrarMensagem(texto, tipo = "status") {
+      const el = document.getElementById("mensagem");
+      el.className = tipo;
+      el.innerText = texto;
+    }
+
     function tocarSom() {
+      if (!alertasAtivados) return;
+
       const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
       audio.play().catch(() => {});
     }
@@ -203,41 +235,64 @@
     }
 
     async function ativarAlertas() {
+      alertasAtivados = true;
+
       if ("Notification" in window) {
         await Notification.requestPermission();
       }
 
       tocarSom();
 
-      document.getElementById("mensagem").innerText =
-        "Alertas ativados. Deixe esta página aberta para o teste.";
+      mostrarMensagem("Alertas ativados. Deixe esta página aberta para o teste.", "status");
     }
 
-    async function carregarRegras() {
-      const resposta = await fetch(API_URL + "?aba=Regras");
-      regras = await resposta.json();
+    function carregarRegras() {
+      mostrarMensagem("Carregando regras...", "status");
 
-      verificarMedicamentos();
+      const callbackName = "receberRegras_" + Date.now();
+
+      window[callbackName] = function(dados) {
+        regras = dados || [];
+        verificarMedicamentos();
+
+        delete window[callbackName];
+        script.remove();
+      };
+
+      const script = document.createElement("script");
+      script.src = API_URL + "?aba=Regras&callback=" + callbackName;
+
+      script.onerror = function() {
+        mostrarMensagem("Erro ao carregar regras.", "status erro");
+      };
+
+      document.body.appendChild(script);
     }
 
     function verificarMedicamentos() {
+      if (!regras || regras.length === 0) {
+        mostrarMensagem("Nenhuma regra carregada ainda.", "status");
+        return;
+      }
+
       const agora = new Date();
       const diaHoje = diasSemana[agora.getDay()];
       const horaAgora = formatarHora(agora);
 
       const pendentes = regras.filter(regra => {
         const horarioRegra = normalizarHorario(regra.horario);
-        return regra.dia_da_semana === diaHoje && horarioRegra <= horaAgora;
+
+        return (
+          regra.dia_da_semana === diaHoje &&
+          horarioRegra <= horaAgora &&
+          !jaRegistradoHoje(regra.id_regra)
+        );
       });
 
       if (pendentes.length === 0) {
         medicamentoAtual = null;
-
-        document.getElementById("mensagem").className = "status";
-        document.getElementById("mensagem").innerText =
-          "Nenhum medicamento pendente agora.";
-
         document.getElementById("areaMedicamento").innerHTML = "";
+        mostrarMensagem("Nenhum medicamento pendente agora.", "status");
         return;
       }
 
@@ -247,9 +302,7 @@
       horarioAlertaAtual = horaAgora;
       qtdAlertas++;
 
-      document.getElementById("mensagem").className = "status alerta";
-      document.getElementById("mensagem").innerText =
-        "Medicamento pendente.";
+      mostrarMensagem("Medicamento pendente.", "status alerta");
 
       document.getElementById("areaMedicamento").innerHTML = `
         <div class="card">
@@ -280,7 +333,7 @@
 
       const dados = new URLSearchParams();
       dados.append("id_regra", medicamentoAtual.id_regra);
-      dados.append("data", agora.toISOString().slice(0, 10));
+      dados.append("data", hojeISO());
       dados.append("dia_da_semana", diasSemana[agora.getDay()]);
       dados.append("horario_previsto", normalizarHorario(medicamentoAtual.horario));
       dados.append("horario_alerta_atual", horarioAlertaAtual || "");
@@ -294,15 +347,19 @@
 
       await fetch(API_URL, {
         method: "POST",
+        mode: "no-cors",
         body: dados
       });
 
-      document.getElementById("mensagem").className = "status";
-      document.getElementById("mensagem").innerText =
-        `Registrado como: ${status}`;
+      marcarRegistradoHoje(medicamentoAtual.id_regra);
+
+      mostrarMensagem(`Registrado como: ${status}`, "status");
 
       document.getElementById("areaMedicamento").innerHTML = "";
       medicamentoAtual = null;
+      qtdAlertas = 0;
+      qtdAdiamentos = 0;
+      horarioAlertaAtual = null;
     }
 
     function adiarMedicamento() {
@@ -316,9 +373,7 @@
 
       horarioAlertaAtual = formatarHora(agora);
 
-      document.getElementById("mensagem").className = "status";
-      document.getElementById("mensagem").innerText =
-        `Medicamento adiado para ${horarioAlertaAtual}`;
+      mostrarMensagem(`Medicamento adiado para ${horarioAlertaAtual}`, "status");
 
       document.getElementById("areaMedicamento").innerHTML = "";
 
