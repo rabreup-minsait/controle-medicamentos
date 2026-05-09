@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>MedLembre</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f4f7;
+    --surface: #ffffff;
+    --surface-2: #f0eef5;
+    --purple-100: #ede8f7;
+    --purple-200: #d4c9f0;
+    --purple-400: #9b7ed4;
+    --purple-600: #6b45b8;
+    --purple-800: #3d2275;
+    --gray-200: #e8e6ed;
+    --gray-400: #a09cb0;
+    --gray-600: #6b6778;
+    --gray-800: #2e2a38;
+    --green: #5a9e7c;
+    --red: #c26b6b;
+    --amber: #c49a3c;
+    --radius: 20px;
+    --shadow: 0 4px 24px rgba(80,50,160,0.08);
+    --shadow-lg: 0 12px 48px rgba(80,50,160,0.14);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  /* Simulação de tela de celular */
+  .phone-frame {
+    width: 390px;
+    min-height: 844px;
+    background: var(--bg);
+    border-radius: 44px;
+    box-shadow:
+      0 0 0 10px #1a1220,
+      0 0 0 12px #2d2040,
+      0 40px 80px rgba(0,0,0,0.35);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Notch */
+  .notch {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 120px; height: 32px;
+    background: #1a1220;
+    border-radius: 0 0 20px 20px;
+    z-index: 100;
+  }
+
+  /* Status bar */
+  .status-bar {
+    padding: 14px 28px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gray-600);
+    flex-shrink: 0;
+  }
+  .status-time { font-weight: 600; color: var(--gray-800); font-size: 13px; }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+  .status-icons svg { width: 14px; height: 14px; fill: var(--gray-600); }
+
+  /* Header app */
+  .app-header {
+    padding: 8px 28px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-shrink: 0;
+  }
+  .app-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--purple-800);
+    letter-spacing: -0.5px;
+  }
+  .app-logo span { color: var(--purple-400); }
+  .user-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--purple-200), var(--purple-400));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600; color: var(--purple-800);
+    box-shadow: 0 2px 8px rgba(107,69,184,0.25);
+  }
+
+  /* Scroll area */
+  .scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 20px 100px;
+    scrollbar-width: none;
+  }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  /* Card de alerta ativo — destaque */
+  .alert-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    overflow: hidden;
+    animation: slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .alert-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--purple-400), var(--purple-600));
+  }
+
+  .alert-pulse {
+    position: absolute;
+    top: 20px; right: 20px;
+    width: 12px; height: 12px;
+    background: var(--purple-400);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(155,126,212,0.6); }
+    50% { box-shadow: 0 0 0 8px rgba(155,126,212,0); }
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .alert-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .alert-badge {
+    background: var(--purple-100);
+    color: var(--purple-600);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .alert-time-tag {
+    font-size: 12px;
+    color: var(--gray-400);
+    font-weight: 400;
+  }
+
+  .alert-icon-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+
+  .med-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--purple-100), var(--purple-200));
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .alert-text h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: var(--gray-800);
+    line-height: 1.2;
+    margin-bottom: 3px;
+  }
+
+  .alert-text p {
+    font-size: 13px;
+    color: var(--gray-400);
+    font-weight: 300;
+  }
+
+  .alert-instruction {
+    background: var(--purple-100);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--purple-800);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  .alert-instruction strong { font-weight: 600; }
+
+  /* Botões de ação */
+  .action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 14px;
+    padding: 13px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+    letter-spacing: 0.1px;
+  }
+
+  .btn:active { transform: scale(0.96); }
+
+  .btn-tomou {
+    background: linear-gradient(135deg, #5a9e7c, #4a8a6a);
+    color: white;
+    box-shadow: 0 4px 16px rgba(90,158,124,0.35);
+    grid-column: span 2;
+    padding: 16px;
+    font-size: 15px;
+  }
+
+  .btn-nao-tomou {
+    background: var(--surface-2);
+    color: var(--red);
+    border: 1.5px solid #e8d0d0;
+  }
+
+  .btn-adiar {
+    background: var(--surface-2);
+    color: var(--gray-600);
+    border: 1.5px solid var(--gray-200);
+  }
+
+  .adiar-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--gray-400);
+    margin-top: 4px;
+  }
+
+  /* Seção de próximos horários */
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-400);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: 24px 0 12px;
+    padding-left: 4px;
+  }
+
+  .med-list-item {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+    transition: transform 0.1s;
+  }
+
+  .med-list-icon {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .icon-blue { background: #e8f0fe; }
+  .icon-peach { background: #fde8e8; }
+  .icon-mint { background: #e8f5ee; }
+
+  .med-info { flex: 1; }
+  .med-name { font-size: 14px; font-weight: 500; color: var(--gray-800); margin-bottom: 2px; }
+  .med-dose { font-size: 12px; color: var(--gray-400); font-weight: 300; }
+
+  .med-time {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--purple-600);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .med-time span {
+    display: block;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--gray-400);
+    text-align: right;
+  }
+
+  /* Histórico rápido */
+  .history-strip {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .history-strip::-webkit-scrollbar { display: none; }
+
+  .history-chip {
+    flex-shrink: 0;
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .history-chip .chip-icon { font-size: 16px; margin-bottom: 4px; }
+  .history-chip .chip-name { font-size: 10px; color: var(--gray-600); font-weight: 500; white-space: nowrap; }
+  .history-chip .chip-status { font-size: 9px; margin-top: 2px; font-weight: 500; }
+  .chip-ok .chip-status { color: var(--green); }
+  .chip-miss .chip-status { color: var(--red); }
+  .chip-pend .chip-status { color: var(--amber); }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--gray-200);
+    padding: 12px 12px 28px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px; cursor: pointer; padding: 4px 12px;
+    border-radius: 12px; transition: background 0.15s;
+  }
+
+  .nav-item.active { background: var(--purple-100); }
+
+  .nav-icon { font-size: 20px; }
+  .nav-label { font-size: 10px; font-weight: 500; color: var(--gray-400); }
+  .nav-item.active .nav-label { color: var(--purple-600); }
+
+  /* Estado de confirmação (oculto por padrão) */
+  .confirm-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.96);
+    border-radius: var(--radius);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    animation: fadeIn 0.3s ease;
+    z-index: 10;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .confirm-icon { font-size: 48px; }
+  .confirm-text { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--gray-800); text-align: center; }
+  .confirm-sub { font-size: 13px; color: var(--gray-400); text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="notch"></div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span class="status-time">5:20</span>
+    <div class="status-icons">
+      <!-- Sinal -->
+      <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 00-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+      <!-- WiFi -->
+      <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 00-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+      <!-- Bateria -->
+      <svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33C16.4 22 17 21.4 17 20.67V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="app-header">
+    <div>
+      <div class="app-logo">Med<span>Lembre</span></div>
+    </div>
+    <div class="user-avatar">M</div>
+  </div>
+
+  <!-- Scroll content -->
+  <div class="scroll-area">
+
+    <!-- ALERTA ATIVO -->
+    <div class="alert-card" id="alertCard">
+      <div class="alert-pulse"></div>
+
+      <div class="alert-meta">
+        <span class="alert-badge">Agora</span>
+        <span class="alert-time-tag">05:20 · Hoje</span>
+      </div>
+
+      <div class="alert-icon-row">
+        <div class="med-icon">💊</div>
+        <div class="alert-text">
+          <h2>Omeprazol 20mg</h2>
+          <p>1 cápsula em jejum</p>
+        </div>
+      </div>
+
+      <div class="alert-instruction">
+        <strong>Maria</strong>, tome agora, antes do café da manhã, com um copo cheio de água.
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn btn-tomou" onclick="confirmar('tomou')">
+          ✓ &nbsp;Tomei
+        </button>
+        <button class="btn btn-nao-tomou" onclick="confirmar('nao-tomou')">
+          ✕ &nbsp;Não tomei
+        </button>
+        <button class="btn btn-adiar" onclick="adiar()">
+          ⏱ &nbsp;Adiar 5 min
+        </button>
+      </div>
+      <div class="adiar-note">Ao adiar, você será lembrado às 05:25</div>
+
+      <!-- Overlay de confirmação -->
+      <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-icon" id="confirmIcon"></div>
+        <div class="confirm-text" id="confirmText"></div>
+        <div class="confirm-sub" id="confirmSub"></div>
+      </div>
+    </div>
+
+    <!-- PRÓXIMOS HORÁRIOS -->
+    <div class="section-title">Próximos hoje</div>
+
+    <div class="med-list-item">
+      <div class="med-list-icon icon-blue">💧</div>
+      <div class="med-info">
+        <div class="med-name">Levotiroxina 50mcg</div>
+        <div class="med-dose">1 comprimido em jejum</div>
+      </div>
+      <div class="med-time">07:00<span>daqui 1h40</span></div>
+    </div>
+
+    <div class="med-list-item">
+      <div class="med-list-icon icon-peach">🩺</div>
+      <div class="med-info">
+        <div class="med-name">Losartana 50mg</div>
+        <div class="med-dose">1 comprimido após almoço</div>
+      </div>
+      <div class="med-time">13:00<span>daqui 7h40</span></div>
+    </div>
+
+    <div class="med-list-item">
+      <div class="med-list-icon icon-mint">🌿</div>
+      <div class="med-info">
+        <div class="med-name">Vitamina D 2000UI</div>
+        <div class="med-dose">1 cápsula com refeição</div>
+      </div>
+      <div class="med-time">20:00<span>daqui 14h40</span></div>
+    </div>
+
+    <!-- RESUMO DO DIA -->
+    <div class="section-title">Resumo de ontem</div>
+
+    <div class="history-strip">
+      <div class="history-chip chip-ok">
+        <div class="chip-icon">💊</div>
+        <div class="chip-name">Omeprazol</div>
+        <div class="chip-status">✓ Tomou</div>
+      </div>
+      <div class="history-chip chip-ok">
+        <div class="chip-icon">💧</div>
+        <div class="chip-name">Levotiroxina</div>
+        <div class="chip-status">✓ Tomou</div>
+      </div>
+      <div class="history-chip chip-miss">
+        <div class="chip-icon">🩺</div>
+        <div class="chip-name">Losartana</div>
+        <div class="chip-status">✕ Não tomou</div>
+      </div>
+      <div class="history-chip chip-ok">
+        <div class="chip-icon">🌿</div>
+        <div class="chip-name">Vitamina D</div>
+        <div class="chip-status">✓ Tomou</div>
+      </div>
+    </div>
+
+  </div><!-- /scroll-area -->
+
+  <!-- Bottom nav -->
+  <div class="bottom-nav">
+    <div class="nav-item active">
+      <div class="nav-icon">🔔</div>
+      <div class="nav-label">Alertas</div>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">💊</div>
+      <div class="nav-label">Remédios</div>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">📅</div>
+      <div class="nav-label">Histórico</div>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">👤</div>
+      <div class="nav-label">Perfil</div>
+    </div>
+  </div>
+
+</div><!-- /phone-frame -->
+
+<script>
+  function confirmar(tipo) {
+    const overlay = document.getElementById('confirmOverlay');
+    const icon = document.getElementById('confirmIcon');
+    const text = document.getElementById('confirmText');
+    const sub = document.getElementById('confirmSub');
+
+    if (tipo === 'tomou') {
+      icon.textContent = '✅';
+      text.textContent = 'Registrado!';
+      sub.textContent = 'Ótimo, Maria. Próximo lembrete às 07:00.';
+    } else {
+      icon.textContent = '📝';
+      text.textContent = 'Anotado.';
+      sub.textContent = 'Registramos que Omeprazol não foi tomado hoje.';
+    }
+
+    overlay.style.display = 'flex';
+
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 2500);
+  }
+
+  function adiar() {
+    const card = document.getElementById('alertCard');
+    const overlay = document.getElementById('confirmOverlay');
+    const icon = document.getElementById('confirmIcon');
+    const text = document.getElementById('confirmText');
+    const sub = document.getElementById('confirmSub');
+
+    icon.textContent = '⏱';
+    text.textContent = 'Adiado por 5 minutos';
+    sub.textContent = 'Você será lembrado novamente às 05:25.';
+
+    overlay.style.display = 'flex';
+
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 2000);
+  }
+</script>
+</body>
+</html>
