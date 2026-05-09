@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Controle de Medicamentos</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+      color: #222;
+    }
+
+    .container {
+      max-width: 480px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: #156082;
+    }
+
+    .status {
+      margin: 12px 0;
+      padding: 12px;
+      border-radius: 10px;
+      background: #e8f5e9;
+      color: #1b5e20;
+      font-weight: bold;
+    }
+
+    .alerta {
+      background: #fff3cd;
+      color: #664d03;
+    }
+
+    .card {
+      margin-top: 16px;
+      padding: 16px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      background: #fafafa;
+    }
+
+    .medicamento {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .info {
+      margin: 4px 0;
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .tomar {
+      background: #2e7d32;
+      color: white;
+    }
+
+    .adiar {
+      background: #f9a825;
+      color: white;
+    }
+
+    .nao {
+      background: #c62828;
+      color: white;
+    }
+
+    .atualizar {
+      background: #156082;
+      color: white;
+    }
+
+    .secundario {
+      background: #e0e0e0;
+      color: #222;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    small {
+      display: block;
+      margin-top: 14px;
+      color: #666;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Controle de Medicamentos</h1>
+
+    <div id="mensagem" class="status">
+      Carregando regras...
+    </div>
+
+    <button class="secundario" onclick="ativarAlertas()">🔔 Ativar alertas</button>
+
+    <div id="areaMedicamento"></div>
+
+    <label>Confirmado por:</label>
+    <input id="confirmadoPor" value="Paciente" />
+
+    <label>Adiar por:</label>
+    <select id="minutosAdiar">
+      <option value="5">5 minutos</option>
+      <option value="10">10 minutos</option>
+      <option value="15">15 minutos</option>
+      <option value="30">30 minutos</option>
+    </select>
+
+    <button class="atualizar" onclick="verificarMedicamentos()">🔄 Atualizar agora</button>
+
+    <small>
+      Esta versão precisa estar aberta no celular para verificar os horários.
+    </small>
+  </div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzk0z6sSJt4GEmR5p8kxYoECeTZWaUCxBZZmPr5AMMEYsQuk34z_chple5j8-t8b3oX/exec";
+
+    let regras = [];
+    let medicamentoAtual = null;
+    let qtdAlertas = 0;
+    let qtdAdiamentos = 0;
+    let horarioAlertaAtual = null;
+
+    const diasSemana = [
+      "Domingo",
+      "Segunda-Feira",
+      "Terça-Feira",
+      "Quarta-Feira",
+      "Quinta-Feira",
+      "Sexta-Feira",
+      "Sábado"
+    ];
+
+    function formatarHora(data) {
+      return data.toTimeString().slice(0, 5);
+    }
+
+    function normalizarHorario(horario) {
+      if (!horario) return "";
+
+      const texto = String(horario);
+
+      if (texto.includes("T")) {
+        const data = new Date(texto);
+        return formatarHora(data);
+      }
+
+      if (texto.length >= 5) {
+        return texto.slice(0, 5);
+      }
+
+      return texto;
+    }
+
+    function tocarSom() {
+      const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+      audio.play().catch(() => {});
+    }
+
+    function notificar(titulo, texto) {
+      tocarSom();
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(titulo, {
+          body: texto,
+          icon: "https://cdn-icons-png.flaticon.com/512/2966/2966486.png"
+        });
+      }
+    }
+
+    async function ativarAlertas() {
+      if ("Notification" in window) {
+        await Notification.requestPermission();
+      }
+
+      tocarSom();
+
+      document.getElementById("mensagem").innerText =
+        "Alertas ativados. Deixe esta página aberta para o teste.";
+    }
+
+    async function carregarRegras() {
+      const resposta = await fetch(API_URL + "?aba=Regras");
+      regras = await resposta.json();
+
+      verificarMedicamentos();
+    }
+
+    function verificarMedicamentos() {
+      const agora = new Date();
+      const diaHoje = diasSemana[agora.getDay()];
+      const horaAgora = formatarHora(agora);
+
+      const pendentes = regras.filter(regra => {
+        const horarioRegra = normalizarHorario(regra.horario);
+        return regra.dia_da_semana === diaHoje && horarioRegra <= horaAgora;
+      });
+
+      if (pendentes.length === 0) {
+        medicamentoAtual = null;
+
+        document.getElementById("mensagem").className = "status";
+        document.getElementById("mensagem").innerText =
+          "Nenhum medicamento pendente agora.";
+
+        document.getElementById("areaMedicamento").innerHTML = "";
+        return;
+      }
+
+      medicamentoAtual = pendentes[0];
+
+      const horarioPrevisto = normalizarHorario(medicamentoAtual.horario);
+      horarioAlertaAtual = horaAgora;
+      qtdAlertas++;
+
+      document.getElementById("mensagem").className = "status alerta";
+      document.getElementById("mensagem").innerText =
+        "Medicamento pendente.";
+
+      document.getElementById("areaMedicamento").innerHTML = `
+        <div class="card">
+          <div class="medicamento">${medicamentoAtual.medicacao}</div>
+          <div class="info"><b>Horário:</b> ${horarioPrevisto}</div>
+          <div class="info"><b>Princípio ativo:</b> ${medicamentoAtual.principio_ativo || ""}</div>
+          <div class="info"><b>Dosagem:</b> ${medicamentoAtual.dosagem || ""}</div>
+          <div class="info"><b>Quantidade:</b> ${medicamentoAtual.qtd || ""}</div>
+          <div class="info"><b>Motivo:</b> ${medicamentoAtual.motivo || ""}</div>
+
+          <button class="tomar" onclick="registrar('Tomado')">✅ Tomei</button>
+          <button class="adiar" onclick="adiarMedicamento()">⏰ Adiar</button>
+          <button class="nao" onclick="registrar('Não tomado')">❌ Não tomei</button>
+        </div>
+      `;
+
+      notificar(
+        "Hora do medicamento",
+        `${medicamentoAtual.medicacao} - ${horarioPrevisto}`
+      );
+    }
+
+    async function registrar(status) {
+      if (!medicamentoAtual) return;
+
+      const agora = new Date();
+      const confirmadoPor = document.getElementById("confirmadoPor").value || "Paciente";
+
+      const dados = new URLSearchParams();
+      dados.append("id_regra", medicamentoAtual.id_regra);
+      dados.append("data", agora.toISOString().slice(0, 10));
+      dados.append("dia_da_semana", diasSemana[agora.getDay()]);
+      dados.append("horario_previsto", normalizarHorario(medicamentoAtual.horario));
+      dados.append("horario_alerta_atual", horarioAlertaAtual || "");
+      dados.append("medicacao", medicamentoAtual.medicacao);
+      dados.append("status", status);
+      dados.append("qtd_alertas", qtdAlertas);
+      dados.append("qtd_adiamentos", qtdAdiamentos);
+      dados.append("horario_efetivo", formatarHora(agora));
+      dados.append("confirmado_por", confirmadoPor);
+      dados.append("observacao", "");
+
+      await fetch(API_URL, {
+        method: "POST",
+        body: dados
+      });
+
+      document.getElementById("mensagem").className = "status";
+      document.getElementById("mensagem").innerText =
+        `Registrado como: ${status}`;
+
+      document.getElementById("areaMedicamento").innerHTML = "";
+      medicamentoAtual = null;
+    }
+
+    function adiarMedicamento() {
+      if (!medicamentoAtual) return;
+
+      qtdAdiamentos++;
+
+      const minutos = Number(document.getElementById("minutosAdiar").value);
+      const agora = new Date();
+      agora.setMinutes(agora.getMinutes() + minutos);
+
+      horarioAlertaAtual = formatarHora(agora);
+
+      document.getElementById("mensagem").className = "status";
+      document.getElementById("mensagem").innerText =
+        `Medicamento adiado para ${horarioAlertaAtual}`;
+
+      document.getElementById("areaMedicamento").innerHTML = "";
+
+      setTimeout(() => {
+        verificarMedicamentos();
+      }, minutos * 60 * 1000);
+    }
+
+    carregarRegras();
+
+    setInterval(() => {
+      verificarMedicamentos();
+    }, 30000);
+  </script>
+</body>
+</html>
