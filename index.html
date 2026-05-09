@@ -189,6 +189,26 @@
       localStorage.setItem(chaveRegistro(idRegra), "registrado");
     }
 
+    function chaveAdiado(idRegra) {
+      return hojeISO() + "_" + idRegra + "_adiado_ate";
+    }
+
+    function estaAdiado(idRegra, horaAgora) {
+      const adiadoAte = localStorage.getItem(chaveAdiado(idRegra));
+
+      if (!adiadoAte) return false;
+
+      return horaAgora < adiadoAte;
+    }
+
+    function salvarAdiamento(idRegra, horario) {
+      localStorage.setItem(chaveAdiado(idRegra), horario);
+    }
+
+    function limparAdiamento(idRegra) {
+      localStorage.removeItem(chaveAdiado(idRegra));
+    }
+
     function formatarHora(data) {
       return data.toTimeString().slice(0, 5);
     }
@@ -285,7 +305,8 @@
         return (
           regra.dia_da_semana === diaHoje &&
           horarioRegra <= horaAgora &&
-          !jaRegistradoHoje(regra.id_regra)
+          !jaRegistradoHoje(regra.id_regra) &&
+          !estaAdiado(regra.id_regra, horaAgora)
         );
       });
 
@@ -352,6 +373,7 @@
       });
 
       marcarRegistradoHoje(medicamentoAtual.id_regra);
+      limparAdiamento(medicamentoAtual.id_regra);
 
       mostrarMensagem(`Registrado como: ${status}`, "status");
 
@@ -372,6 +394,8 @@
       agora.setMinutes(agora.getMinutes() + minutos);
 
       horarioAlertaAtual = formatarHora(agora);
+
+      salvarAdiamento(medicamentoAtual.id_regra, horarioAlertaAtual);
 
       mostrarMensagem(`Medicamento adiado para ${horarioAlertaAtual}`, "status");
 
